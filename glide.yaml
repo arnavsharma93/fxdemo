@@ -1,0 +1,4 @@
+package: github.com/arnavsharma93/fxdemo
+import:
+- package: go.uber.org/fx
+  version: ^1

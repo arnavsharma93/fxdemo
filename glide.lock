@@ -1,0 +1,6 @@
+hash: eca46d7127de07fa082fd14580c76817809e5efc861f90357d913fcb20e00f75
+updated: 2018-02-28T09:04:41.373113+05:30
+imports:
+- name: go.uber.org/fx
+  version: 35bf66c87beb2c8ec1a68cf00b54542e2d169c0b
+testImports: []
