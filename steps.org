@@ -1,4 +1,12 @@
 * New
+When Run() is called, Fx will:
+
+Print all types available using the PROVIDE log line (more on this later).
+Print RUNNING once the app has started successfully.
+Block until either SIGINT or SIGTERM is received.
+Gracefully shut down, causing the process to exit.
+
+Send a SIGINT now by typing Ctrl+C into the console:
 #+BEGIN_SRC go
 package main
 
@@ -12,3 +20,35 @@ func main() {
 
 }
 #+END_SRC
+* Provide
+Fx apps are built around types, which are made available to your application
+via dependency injection using fx.Provide.
+If you run your Fx app, you can see a log statement starting with PROVIDE:
+To build any functionality, you must provide your own types by following these two steps:
+
+1. Write a constructor that creates a type.
+#+BEGIN_SRC go
+// NewHandler function instantiates our handler
+func NewHandler() http.Handler {
+	fmt.Println("Constructing a new http handler")
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Handler was called")
+		_, err := io.WriteString(w, "hello world\n")
+		if err != nil {
+			log.Println("err, please do something ", err)
+		}
+	}
+
+	return http.HandlerFunc(handler)
+}
+#+END_SRC
+2. Pass the constructor to fx.New() using the fx.Provide() option.
+#+BEGIN_SRC go
+	app := fx.New(
+		fx.Provide(NewHandler),
+	)
+#+END_SRC
+
+Start by introducing an http.Handler type by adding the following constructor
+under your main() func:
