@@ -52,3 +52,134 @@ func NewHandler() http.Handler {
 
 Start by introducing an http.Handler type by adding the following constructor
 under your main() func:
+Notice that you didn't see the output Constructing an http.Handler when you ran the
+application.
+This is because Fx never called NewHandler. It only made the type available.
+Put differently, the constructors supplied via fx.Provide are called lazily.
+* Invoke
+fx.Provide makes types available, but how do we use these types? With fx.Invoke.
+
+fx.Invoke allows you to supply functions that:
+
+1. Will always be executed when your app is run.
+2. Have access to all types provided to the app.
+
+Think of functions supplied to fx.Invoke as the entry point: they introduce your
+service’s top-level objects to each other.
+
+For example, you might use an invoked function to register all your HTTP handlers with a mux,
+to bind your RPC procedures to the network, or to wire your message handlers up
+to a Kafka queue. Without fx.Invoke, Fx wouldn't know what code needs to run or which
+types need to be nstantiated.
+
+1. Set up invoke
+#+BEGIN_SRC go
+
+		fx.Invoke(Register),
+
+// Register the http handler
+func Register(handler http.Handler) {
+	// TODO: do the actual registering
+	fmt.Printf("register the handler %v against %v\n", handler, "something")
+
+}
+#+END_SRC
+
+The [Fx] INVOKE main.Register() line indicates that main.Register was executed as promised.
+You can also see that every type required to call Register was instantiated:
+
+2. Provide mux
+Next, you need to make the Register function actually register the http.Handler against
+a *http.ServeMux. To do that, provide the type *http.ServeMux by adding the
+following constructor below main():
+
+Great! *http.ServeMux is now available.
+Update Register to register the handler against the *http.ServeMux:
+
+#+BEGIN_SRC go
+
+		fx.Provide(
+			NewHandler,
+			NewServeMux,
+		),
+
+// NewServeMux provides a new serve mux
+func NewServeMux() *http.ServeMux {
+	fmt.Println("construting a new serve mux")
+	mux := http.ServeMux{}
+	// TODO: do something with the request here
+
+	return &mux
+}
+
+// Register the http handler
+func Register(handler http.Handler, mux *http.ServeMux) {
+	// TODO: do the actual registering
+	fmt.Printf("register the handler %#v against %T\n", handler, mux)
+	mux.Handle("/", handler)
+
+}
+#+END_SRC
+* LifeCycle
+The first PROVIDE printed when your app runs is fx.Lifecycle:
+
+#+BEGIN_SRC sh
+$ go run main.go
+[Fx] PROVIDE	    fx.Lifecycle <= vendor/go.uber.org/fx.New.func1()
+	...
+
+#+END_SRC
+Long-running workloads, like the ones described in the previous section,
+need a way to hook into process lifecycle (the startup and shutdown of a process).
+Fx provides the type fx.Lifecycle, which enables exactly that.
+
+To see how this works, update NewServeMux to use fx.Lifecycle:
+1. Write hooks and append them to lifecycle
+#+BEGIN_SRC go
+// NewServeMux provides a new serve mux
+func NewServeMux(lifecycle fx.Lifecycle) *http.ServeMux {
+	fmt.Println("construting a new serve mux")
+	mux := http.ServeMux{}
+	lifecycle.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			fmt.Println("starting http server")
+			return nil
+		},
+		OnStop: func(context.Context) error {
+			fmt.Println("stopping http server")
+			return nil
+		},
+	})
+
+	return &mux
+}
+
+#+END_SRC
+
+2. Get new serve mux, create new http server, and start on OnStart
+#+BEGIN_SRC go
+
+func NewServeMux(lifecycle fx.Lifecycle) *http.ServeMux {
+	fmt.Println("construting a new serve mux")
+	mux := http.NewServeMux()
+
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+	lifecycle.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			fmt.Println("starting http server")
+			// ignoring error handling for brevity
+			go server.ListenAndServe()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			fmt.Println("stopping http server")
+			return server.Shutdown(ctx)
+		},
+	})
+
+	return mux
+}
+#+END_SRC

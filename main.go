@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -11,10 +12,39 @@ import (
 
 func main() {
 	app := fx.New(
-		fx.Provide(NewHandler),
+		fx.Provide(
+			NewHandler,
+			NewServeMux,
+		),
+		fx.Invoke(Register),
 	)
 	app.Run()
 
+}
+
+// NewServeMux provides a new serve mux
+func NewServeMux(lifecycle fx.Lifecycle) *http.ServeMux {
+	fmt.Println("construting a new serve mux")
+	mux := http.NewServeMux()
+
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+	lifecycle.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			fmt.Println("starting http server")
+			// ignoring error handling for brevity
+			go server.ListenAndServe()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			fmt.Println("stopping http server")
+			return server.Shutdown(ctx)
+		},
+	})
+
+	return mux
 }
 
 // NewHandler function instantiates our handler
@@ -30,4 +60,12 @@ func NewHandler() http.Handler {
 	}
 
 	return http.HandlerFunc(handler)
+}
+
+// Register the http handler
+func Register(handler http.Handler, mux *http.ServeMux) {
+	// TODO: do the actual registering
+	fmt.Printf("register the handler %#v against %T\n", handler, mux)
+	mux.Handle("/", handler)
+
 }
