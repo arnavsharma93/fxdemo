@@ -1,10 +1,42 @@
+* Engineering
+- Trip scale - solving complicated distributed problems like realtime pnl
+- Rely heavily on kafka, golang, cassandara and other open source solutions
+
+* Why Go@Uber?
+** Engineering growth
+ 300 - 2014
+ 1000 - 2015
+ 2000 - 2016
+ 3000 - 2017
+
+* Golang features
+| Feature                                                 | Help line                                                                       |
+| Performant and productive                               | The joke goes that Go was developed while waiting for a C++ program to compile. |
+| Has fewer features - lower learning curve.              | Team onobarded quickly                                                          |
+| Canonical styling - no fighting over unnecessary stuff. | gofmt, formatters, linters                                                      |
+| Lower compute and memory footprint.                     | uber services used lower, trademarks show lower usage                           |
+| Great inbuilt tooling for CPU and memory profiling.     | profilers                                                                       |
+| Simple type system - offers compile time safety.        | maintainable code, catch errors at compile time                                 |
+| Inbuilt memory safety                                   | 21st century code, inbuilt garbage collector                                    |
+| Concurrency                                             | goroutines, channel - no futures, messy callbacks, yields                       |
+| Binary                                                  | ease of deploying, no run time loading                                          |
+| Understand go                                           | don't apply same solutions, understand paradigm                               |
+| Bad dependency management                               | glide sucks, godep is in works                                                  |
+| 3rd party solutions                                     | Not at the same level as Python but getting better                         |
+
+* UberFx
+Fx is an application framework for Go that:
+1. Composable and testable apps
+2. Boilerplate in main and the need for global state and package-level init functions.
+3. Using dependency injection.
+
 * New
 When Run() is called, Fx will:
 
-Print all types available using the PROVIDE log line (more on this later).
-Print RUNNING once the app has started successfully.
-Block until either SIGINT or SIGTERM is received.
-Gracefully shut down, causing the process to exit.
+1. Print all types - PROVIDE log line
+2. Print RUNNING once - success
+3. Block until either SIGINT or SIGTERM is received.
+4. Gracefully shut down, causing the process to exit.
 
 Send a SIGINT now by typing Ctrl+C into the console:
 #+BEGIN_SRC go
@@ -21,12 +53,14 @@ func main() {
 }
 #+END_SRC
 * Provide
-Fx apps are built around types, which are made available to your application
-via dependency injection using fx.Provide.
-If you run your Fx app, you can see a log statement starting with PROVIDE:
-To build any functionality, you must provide your own types by following these two steps:
+- Fx apps are built around types, via dependency injection using fx.Provide.
+- Log - PROVIDE line
 
-1. Write a constructor that creates a type.
+To build any functionality, you must provide your own types by following these two steps:
+- Write a constructor that creates a type.
+- Pass the constructor to fx.New() using the fx.Provide() option.
+
+1 Write a constructor that creates a type.
 #+BEGIN_SRC go
 // NewHandler function instantiates our handler
 func NewHandler() http.Handler {
@@ -43,36 +77,27 @@ func NewHandler() http.Handler {
 	return http.HandlerFunc(handler)
 }
 #+END_SRC
-2. Pass the constructor to fx.New() using the fx.Provide() option.
+2 Pass the constructor to fx.New() using the fx.Provide() option.
 #+BEGIN_SRC go
 	app := fx.New(
 		fx.Provide(NewHandler),
 	)
 #+END_SRC
+** Will handler was called be printed?
+- Notice that you didn't see the output , as FX never called NewHandler
+- Put differently, the constructors supplied via fx.Provide are called lazily.
 
-Start by introducing an http.Handler type by adding the following constructor
-under your main() func:
-Notice that you didn't see the output Constructing an http.Handler when you ran the
-application.
-This is because Fx never called NewHandler. It only made the type available.
-Put differently, the constructors supplied via fx.Provide are called lazily.
 * Invoke
-fx.Provide makes types available, but how do we use these types? With fx.Invoke.
+- fx.Provide makes types available, but how do we use these types? With fx.Invoke.
+- fx.Invoke allows you to supply functions that:
+  1. Have access to all provided types
+  2. Always get executed
+  3. Think of them as entry points
 
-fx.Invoke allows you to supply functions that:
+- For example, you might use an invoked function to register all your HTTP handlers with a mux,
+to bind your RPC procedures to the network
 
-1. Will always be executed when your app is run.
-2. Have access to all types provided to the app.
-
-Think of functions supplied to fx.Invoke as the entry point: they introduce your
-service’s top-level objects to each other.
-
-For example, you might use an invoked function to register all your HTTP handlers with a mux,
-to bind your RPC procedures to the network, or to wire your message handlers up
-to a Kafka queue. Without fx.Invoke, Fx wouldn't know what code needs to run or which
-types need to be nstantiated.
-
-1. Set up invoke
+- Set up invoke
 #+BEGIN_SRC go
 
 		fx.Invoke(Register),
@@ -85,17 +110,13 @@ func Register(handler http.Handler) {
 }
 #+END_SRC
 
-The [Fx] INVOKE main.Register() line indicates that main.Register was executed as promised.
-You can also see that every type required to call Register was instantiated:
+_What will get printed now?_ Would we see constructor line?
+  - The [Fx] INVOKE main.Register() line indicates that main.Register was executed as promised.
+  - Every time instantiated
 
-2. Provide mux
-Next, you need to make the Register function actually register the http.Handler against
-a *http.ServeMux. To do that, provide the type *http.ServeMux by adding the
-following constructor below main():
-
-Great! *http.ServeMux is now available.
-Update Register to register the handler against the *http.ServeMux:
-
+- Provide mux
+  - Provide mux
+  - Update register to take mux
 #+BEGIN_SRC go
 
 		fx.Provide(
@@ -121,16 +142,16 @@ func Register(handler http.Handler, mux *http.ServeMux) {
 }
 #+END_SRC
 * LifeCycle
-The first PROVIDE printed when your app runs is fx.Lifecycle:
-
+- The first PROVIDE printed
 #+BEGIN_SRC sh
 $ go run main.go
 [Fx] PROVIDE	    fx.Lifecycle <= vendor/go.uber.org/fx.New.func1()
 	...
 
 #+END_SRC
-Long-running workloads, like the ones described in the previous section,
-need a way to hook into process lifecycle (the startup and shutdown of a process).
+- Need something to do
+  - Long-running workloads, like starting a server.
+  - Hook into process lifecycle (the startup and shutdown of a process).
 Fx provides the type fx.Lifecycle, which enables exactly that.
 
 To see how this works, update NewServeMux to use fx.Lifecycle:
@@ -183,15 +204,19 @@ func NewServeMux(lifecycle fx.Lifecycle) *http.ServeMux {
 	return mux
 }
 #+END_SRC
-* Options
-In the previous section, you finished building an Fx app from scratch.
-The app contained two types of code:
 
+_What will get printed first?_ starting http server or provide invoke statements
+
+* Options
+The app contained two types of code:
 1. Business logic unique to your app: the handler provided by NewHandler.
 2. Code required to set up the HTTP server: the mux provided by NewServeMux and
 invoked by Register.
 
-1. New serverfx
+- Great to separate responsibilities
+- Resuability of modules, distribute independently
+
+- New serverfx
 #+BEGIN_SRC go
 
 // Module allows the module to provide multiple constructors and functions to invoke
@@ -202,14 +227,12 @@ var Module = fx.Options(
 )
 #+END_SRC
 2. Import it
-
 #+BEGIN_SRC go
 	"github.com/arnavsharma93/fxdemo/serverfx"
 #+END_SRC
+3. Add it to main.go
+_how should it be added? provided or invoked? or something else?_
 
-Fantastic.
-Now your app only contains business logic, and none of the code required to set up the
-HTTP server!
 If other apps want to use serverfx, it can easily be moved to its own repo to be
 versioned and distributed independently.
 2. Create logfx
