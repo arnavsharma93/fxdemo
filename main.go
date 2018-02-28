@@ -6,14 +6,14 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/arnavsharma93/fxdemo/serverfx"
+	"github.com/arnavsharma93/fxdemo/fxdemofx"
 
 	"go.uber.org/fx"
 )
 
 func main() {
 	app := fx.New(
-		serverfx.Module,
+		fxdemofx.Module,
 		fx.Provide(
 			NewHandler,
 		),
@@ -23,14 +23,14 @@ func main() {
 }
 
 // NewHandler function instantiates our handler
-func NewHandler() http.Handler {
-	fmt.Println("Constructing a new http handler")
+func NewHandler(log *log.Logger) http.Handler {
+	log.Print("Constructing a new http handler")
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Handler was called")
 		_, err := io.WriteString(w, "hello world\n")
 		if err != nil {
-			log.Println("err, please do something ", err)
+			log.Print("err, please do something ", err)
 		}
 	}
 

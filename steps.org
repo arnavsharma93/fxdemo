@@ -206,3 +206,32 @@ var Module = fx.Options(
 #+BEGIN_SRC go
 	"github.com/arnavsharma93/fxdemo/serverfx"
 #+END_SRC
+
+Fantastic.
+Now your app only contains business logic, and none of the code required to set up the
+HTTP server!
+If other apps want to use serverfx, it can easily be moved to its own repo to be
+versioned and distributed independently.
+2. Create logfx
+#+BEGIN_SRC go
+// Module provides the *log.Logger
+var Module = fx.Options(
+	fx.Provide(NewLogger),
+)
+
+// NewLogger instantiates a logger which can be used throughout
+func NewLogger() *log.Logger {
+	logger := log.New(os.Stdout, "[fxdemo] ", 0)
+	logger.Print("Instantiating a logger")
+	return logger
+
+}
+#+END_SRC
+3. Create a common fxdemofx
+#+BEGIN_SRC go
+// Module provides common modules which can be picked up by other projects
+var Module = fx.Options(
+	logfx.Module,
+	serverfx.Module,
+)
+#+END_SRC
