@@ -183,3 +183,26 @@ func NewServeMux(lifecycle fx.Lifecycle) *http.ServeMux {
 	return mux
 }
 #+END_SRC
+* Options
+In the previous section, you finished building an Fx app from scratch.
+The app contained two types of code:
+
+1. Business logic unique to your app: the handler provided by NewHandler.
+2. Code required to set up the HTTP server: the mux provided by NewServeMux and
+invoked by Register.
+
+1. New serverfx
+#+BEGIN_SRC go
+
+// Module allows the module to provide multiple constructors and functions to invoke
+// through a single variable using fx.Options
+var Module = fx.Options(
+	fx.Provide(NewServeMux),
+	fx.Invoke(Register),
+)
+#+END_SRC
+2. Import it
+
+#+BEGIN_SRC go
+	"github.com/arnavsharma93/fxdemo/serverfx"
+#+END_SRC
