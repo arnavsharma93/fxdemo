@@ -1,0 +1,14 @@
+* New
+#+BEGIN_SRC go
+package main
+
+import (
+	"go.uber.org/fx"
+)
+
+func main() {
+	app := fx.New()
+	app.Run()
+
+}
+#+END_SRC
